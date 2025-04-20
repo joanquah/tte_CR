@@ -51,13 +51,17 @@ CR <- checkast %>%
     org_names_all %in% c("Acinetobacter", "acinetobacter spp", "acinetobacter baumini") & 
       susceptibility != "Susceptible" ~ "CRAB",
     
-    # Assign "CRE_CRPAE" only if org_names_all matches AND susceptibility is NOT "Susceptible"
-    org_names_all %in% c("Pseudomonas", "K. pneumoniae", "E. coli", 
+    # Assign "CRE" only if org_names_all matches AND susceptibility is NOT "Susceptible"
+    org_names_all %in% c("K. pneumoniae", "E. coli", 
                          "Serratia", "Proteus", "Providencia", "Morganella", 
                          "Enterobacter", "Enterobacter aerogenes", "Enterobacter cloacae", 
                          "Klebsiella", "Klebsiella acidogenes", "Klebsiella oxytocin",
                          "Citrobacter") & 
-      susceptibility != "Susceptible" ~ "CRE_CRPAE",
+      susceptibility != "Susceptible" ~ "CRE",
+    
+    # Assign "CRE" only if org_names_all="Pseudomonas" AND susceptibility is NOT "Susceptible"
+    org_names_all %in% c("Pseudomonas", "pseudomonas spp", "pseudomonas aeruginosa") & 
+      susceptibility != "Susceptible" ~ "CRPAE",
     
     # Default to NA if no match or susceptibility is "Susceptible"
     TRUE ~ NA_character_
@@ -352,18 +356,6 @@ CR_targeted <- CR_combined %>%
 # mortality_date_final, infection_types, mono_poly)
 
 
-CR_icu <- f02 %>% select (recordid, f02_deleted, f02_infected_episode_complete, hai_icu48days, hai_have_med_device___vent)%>%
-  #filter(recordid %in% CR_final$recordid)%>%
-  filter(f02_infected_episode_complete == 2)%>%
-  # filter rows when f02_deleted is not Y
-  select(-f02_infected_episode_complete, -f02_deleted) %>%
-  group_by(recordid) %>%
-  summarise(
-    hai_icu48days = if_else(any(hai_icu48days == "Y"), "Y", "N"),
-    hai_have_med_device___vent = if_else(any(hai_have_med_device___vent == 1), 1L, 0L)
-  )%>%
-  distinct()
-
 # join CR_targeted and outcome dataframe, follow CR_targeted recordid
 CR_final <- left_join(CR_targeted, outcome, by = "recordid")%>%
   mutate(
@@ -443,6 +435,12 @@ length(unique(CR_final$recordid)) #501  #511 #532  #982
 CRAB <- CR_final %>% filter(organism == "CRAB")
 length(unique(CRAB$recordid)) #487
 nrow(CRAB) #487
-CRE_CRPAE <- CR_final %>% filter(organism == "CRE_CRPAE")
-length(unique(CRE_CRPAE$recordid)) #315
-nrow(CRE_CRPAE) #315
+CRE <- CR_final %>% filter(organism == "CRE")
+length(unique(CRE_CRPAE$recordid)) #221
+nrow(CRE_CRPAE) #221
+CRPAE <- CR_final %>% filter(organism == "CRPAE")
+length(unique(CRPAE$recordid)) # 89  
+nrow(CRPAE) #89
+
+colnames(CR_final)
+

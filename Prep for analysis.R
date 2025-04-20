@@ -5,7 +5,8 @@
 ############################
 
 # cci
-cmb <- baseline_outcomes_index %>% select (recordid, hpd_admreason, cmb_comorbidities___none, cmb_comorbidities___aids, cmb_comorbidities___onc, cmb_comorbidities___cpd, cmb_comorbidities___cog, cmb_comorbidities___rheu, cmb_comorbidities___dem, cmb_comorbidities___diab, cmb_comorbidities___diad, cmb_comorbidities___hop, cmb_comorbidities___hivwa, cmb_comorbidities___hivna, cmb_comorbidities___mlr, cmb_comorbidities___mal, cmb_comorbidities___mst, cmb_comorbidities___mld, cmb_comorbidities___liv, cmb_comorbidities___pep, cmb_comorbidities___renal, cmb_comorbidities___tub, cmb_comorbidities___oth)%>%
+cmb <- baseline_outcomes_index %>% select (recordid, hpd_admreason, cmb_comorbidities___none, cmb_comorbidities___aids, cmb_comorbidities___onc, cmb_comorbidities___cpd, cmb_comorbidities___cog, cmb_comorbidities___rheu, cmb_comorbidities___dem, cmb_comorbidities___diab, cmb_comorbidities___diad, cmb_comorbidities___hop, cmb_comorbidities___hivwa, cmb_comorbidities___hivna, cmb_comorbidities___mlr, cmb_comorbidities___mal, cmb_comorbidities___mst, cmb_comorbidities___mld, cmb_comorbidities___liv, cmb_comorbidities___pep, cmb_comorbidities___renal, cmb_comorbidities___tub, cmb_comorbidities___oth,
+                                           )%>%
   filter(recordid %in% CR_final$recordid)
 
 # BSI only-immunosuppresion status and Pitts
@@ -17,8 +18,22 @@ comorb <- f07a %>% select (recordid, inf_onset, hiv, end, ins, am, cc, pt, child
 # qsofa
 qsofa <- severity_new %>% filter(recordid %in% CR_final$recordid) %>% mutate(qsofa = severity_score)%>% select (-severity_score, -severity_score_scale, -adm_ward_types_ori, -adm_ward_types_new)
 qsofa_detailed <- severity %>% filter(recordid %in% CR_final$recordid) %>% 
-  select (recordid,redcap_event_name, ser_gcs_under15, ser_rr_22up, ser_sbp_under100, ser_abnormal_temp_adult, hai_icu48days, hai_surg,mic_bloodcollect,mic_rec_antibiotic, 
+  select (recordid,redcap_event_name, ser_gcs_under15, ser_rr_22up, ser_sbp_under100, ser_abnormal_temp_adult, hai_icu48days, hai_surg, , hai_have_med_device___vent,mic_bloodcollect,mic_rec_antibiotic, 
           ser_gcs_under15_new,ser_gcs_under15_new,ser_rr_22up_new, ser_sbp_under100_new)
+
+CR_icu_ven <- qsofa_detailed %>% select(recordid, hai_icu48days,hai_surg, hai_have_med_device___vent)%>% filter(recordid %in% CR_final$recordid)
+CR_icu <- f02 %>% select (recordid, f02_deleted, f02_infected_episode_complete, hai_icu48days, hai_have_med_device___vent)%>%
+  #filter(recordid %in% CR_final$recordid)%>%
+  filter(f02_infected_episode_complete == 2)%>%
+  # filter rows when f02_deleted is not Y
+  select(-f02_infected_episode_complete, -f02_deleted) %>%
+  group_by(recordid) %>%
+  summarise(
+    hai_icu48days = if_else(any(hai_icu48days == "Y"), "Y", "N"),
+    hai_have_med_device___vent = if_else(any(hai_have_med_device___vent == 1), 1L, 0L)
+  )%>%
+  distinct()%>%
+  mutate(hai_icu48days = ifelse(hai_icu48days == "Y", 1, 0)) 
 
 cre <- sofa_all %>% select (recordid, sofa_ren,sofa_ren_2, sofa_cre_1, sofa_cre_2)%>%
   filter (recordid %in% CR_final$recordid)  #only 23 missing out of 310
@@ -57,11 +72,15 @@ CR_sofa_median <- CR_sofa_median_imputed %>% select(recordid, sofa_score_median)
 CR_final[CR_final$recordid == "PK-003-A0-0093", "score_CVS"] <- 0
 CR_final[CR_final$recordid == "PK-003-A0-0100", "score_CVS"] <- 0
 CR_final[CR_final$recordid == "PK-003-A0-0105", "score_CVS"] <- 0
-length(unique(CR_final$recordid)) #335  #982
+CR_final[CR_final$recordid == "MY-003-A0-0085", "score_CVS"] <- 0
+CR_final[CR_final$recordid == "PK-003-A0-0319", "score_CVS"] <- 0
+
+
+length(unique(CR_final$recordid)) #982
 
 CR_final <- CR_final %>%
-  left_join(CR_sofa_sum, by = "recordid") %>%
-  left_join(CR_sofa_median, by = "recordid") %>%
+  #left_join(CR_sofa_sum, by = "recordid") %>%
+  #left_join(CR_sofa_median, by = "recordid") %>%
   left_join(qsofa, by = "recordid") %>%
   left_join(cmb, by = "recordid")%>%
   left_join(cre, by = "recordid") %>%
@@ -71,60 +90,6 @@ CR_final <- CR_final %>%
   mutate(country_income2 = ifelse(country_income == "Low income" | country_income == "Lower middle income", "Low income and Lower middle income", "Upper middle income and High income")) %>%
   relocate(country_income2, .after = country_income) 
 # %>%  select(-spec_date) %>% distinct()
-
-CR_final<- CR_final %>%
-  # if hai_icu48days is "Y" , assign 1, else 0
-  mutate(hai_icu48days = ifelse(hai_icu48days == "Y", 1, 0)) 
-
-### Multiple imputation ###
-# Step 1: Define the variables with missing data to impute and predictor variables
-vars_to_impute <- c("score_respiration", "score_liver", "crea")
-predictors <- c(
-  "icu_at_onset4", "vent_at_onset4", "los_onset4", "iculos_onset4", "mvdur_onset4", "age_new", 
-  "score_respiration", "score_coagulation", "score_liver", "score_CVS", "score_CNV","score_renal", 
-  "qsofa", "hpd_admreason","comorbidities_Chalson",
-  "cmb_comorbidities___none", "cmb_comorbidities___aids", "cmb_comorbidities___onc",
-  "cmb_comorbidities___cpd", "cmb_comorbidities___cog", "cmb_comorbidities___rheu", "cmb_comorbidities___dem",
-  "cmb_comorbidities___diab", "cmb_comorbidities___diad", "cmb_comorbidities___hop", "cmb_comorbidities___hivwa",
-  "cmb_comorbidities___hivna", "cmb_comorbidities___mlr", "cmb_comorbidities___mal", "cmb_comorbidities___mst",
-  "cmb_comorbidities___mld", "cmb_comorbidities___liv", "cmb_comorbidities___pep", "cmb_comorbidities___renal",
-  "cmb_comorbidities___tub", "cmb_comorbidities___oth", 
-  "crea", "hai_icu48days", "hai_have_med_device___vent"
-)
-
-# Step 2: Initialize imputation setup
-ini <- mice(CR_final, maxit = 0)
-meth <- ini$method
-pred <- ini$predictorMatrix
-
-# Step 3: Set up methods and predictor matrix
-meth[] <- "" # Do not impute unless specified
-meth[vars_to_impute] <- "pmm"
-pred[,] <- 0 #This zeroes out the entire predictor matrix (i.e., no variables predict anything by default)
-pred[vars_to_impute, predictors] <- 1  # activates only chosen predictors to predict your chosen
-
-# Step 4: Perform imputation (only impute 4 variables, use only the listed predictors, run 20 imputations ie create 20 complete datasets with diff imputed values)
-imp <- mice(CR_final, method = meth, predictorMatrix = pred, m = 20, seed = 123)
-
-# Step 5: Extract pooled values using Rubin’s rule and average imputations
-# Convert to long format and compute mean across imputations
-imputed_values <- complete(imp, "long") %>%
-  group_by(.id) %>%
-  summarise(across(all_of(vars_to_impute), ~ mean(.x, na.rm = TRUE))) %>%
-  mutate(across(c(score_respiration, score_liver, crea), round)) %>%
-  rename_with(~ paste0(., "_imp"), all_of(vars_to_impute))
-
-# Step 6: Bind imputed values back to original data
-CR_final <- CR_final %>%
-  bind_cols(imputed_values %>% select(-.id))
-
-CR_sofa_imputed <- CR_final %>%
-  select(recordid, score_respiration_imp, score_respiration, score_CVS, score_liver_imp,score_liver, 
-         score_coagulation,score_CNV, score_renal, sofa_score, crea, crea_imp) %>%
-  # new column is the sum of score_respiration_imp, score_CVS_imp, score_liver_imp, score_coagulation, score_CNV, score_renal
-  mutate(sofa_imputed = rowSums(select(., score_respiration_imp, score_CVS, score_liver_imp, score_coagulation, score_CNV, score_renal), na.rm = TRUE))
-skim(CR_sofa_imputed)
-
 
 
 # pathogen <- CR_final %>% select(recordid, org_combined, mono_poly) %>% distinct() 
@@ -159,8 +124,88 @@ skim(CR_sofa_imputed)
 # cre <- cre %>%  select(recordid, crea)
 
 
-# Convert columns to appropriate classes
 CR_final <- CR_final %>%
+  #relocate(spec_date_new, .after = spec_date) %>%
+  relocate(monopoly, .after = mono_poly) %>%
+  relocate(org_combined_new, .after = org_combined) %>%
+  # select(-spec_date) %>%
+  distinct() %>%
+  mutate(aci = ifelse(grepl("Acinetobacter|acinetobacter baumini", org_combined_new), 1, 0)) %>%
+  mutate(pae= ifelse(grepl("Pseudomonas", org_combined_new), 1, 0)) %>%
+  mutate(ent= ifelse(grepl("Enterobacter|Serratia|K. pneumoniae|Klebsiella|Aeromonas|Enterobacter|E. coli|Proteus|Providencia|Morganella|Proteus|Serratia|Citrobacter|Aeromonas", org_combined_new), 1, 0))%>%
+  group_by(recordid) %>%
+  mutate(
+    cr_aci = ifelse(any(organism == "CRAB", na.rm = TRUE), 1, 0),
+    cr_ent = ifelse(any(organism == "CRE", na.rm = TRUE), 1, 0),
+    cr_pae = ifelse(any(organism == "CRPAE", na.rm = TRUE), 1, 0)
+  ) %>%
+  ungroup()
+
+
+check <- CR_final %>% select(recordid, onset4, org_combined_new, organism, monopoly, anti_onset4, infection_types, aci, pae, ent, cr_aci, cr_ent, cr_pae) 
+
+CR_final_1row <-CR_final %>% select(-organism) %>% distinct() 
+length(unique(CR_final_1row$recordid)) #753
+nrow(CR_final_1row) #753
+
+# filter rows with recordid more than 1 row
+check <- CR_final_1row %>%
+  group_by(recordid) %>%
+  filter(n() > 1) %>%
+  ungroup()
+
+### Multiple imputation ###
+# Step 1: Define the variables with missing data to impute and predictor variables
+vars_to_impute <- c("score_respiration", "score_liver", "crea")
+predictors <- c(
+  "icu_at_onset4", "vent_at_onset4", "los_onset4", "iculos_onset4", "mvdur_onset4", "age_new", 
+  "score_respiration", "score_coagulation", "score_liver", "score_CVS", "score_CNV","score_renal", 
+  "qsofa", "hpd_admreason","comorbidities_Chalson",
+  "cmb_comorbidities___none", "cmb_comorbidities___aids", "cmb_comorbidities___onc",
+  "cmb_comorbidities___cpd", "cmb_comorbidities___cog", "cmb_comorbidities___rheu", "cmb_comorbidities___dem",
+  "cmb_comorbidities___diab", "cmb_comorbidities___diad", "cmb_comorbidities___hop", "cmb_comorbidities___hivwa",
+  "cmb_comorbidities___hivna", "cmb_comorbidities___mlr", "cmb_comorbidities___mal", "cmb_comorbidities___mst",
+  "cmb_comorbidities___mld", "cmb_comorbidities___liv", "cmb_comorbidities___pep", "cmb_comorbidities___renal",
+  "cmb_comorbidities___tub", "cmb_comorbidities___oth", 
+  "crea", "hai_icu48days", "hai_have_med_device___vent"
+)
+
+# Step 2: Initialize imputation setup
+ini <- mice(CR_final_1row, maxit = 0)
+meth <- ini$method
+pred <- ini$predictorMatrix
+
+# Step 3: Set up methods and predictor matrix
+meth[] <- "" # Do not impute unless specified
+meth[vars_to_impute] <- "pmm"
+pred[,] <- 0 #This zeroes out the entire predictor matrix (i.e., no variables predict anything by default)
+pred[vars_to_impute, predictors] <- 1  # activates only chosen predictors to predict your chosen
+
+# Step 4: Perform imputation (only impute 4 variables, use only the listed predictors, run 20 imputations ie create 20 complete datasets with diff imputed values)
+imp <- mice(CR_final_1row, method = meth, predictorMatrix = pred, m = 20, seed = 123)
+
+# Step 5: Extract pooled values using Rubin’s rule and average imputations
+# Convert to long format and compute mean across imputations
+imputed_values <- complete(imp, "long") %>%
+  group_by(.id) %>%
+  summarise(across(all_of(vars_to_impute), ~ mean(.x, na.rm = TRUE))) %>%
+  mutate(across(c(score_respiration, score_liver, crea), round)) %>%
+  rename_with(~ paste0(., "_imp"), all_of(vars_to_impute))
+
+# Step 6: Bind imputed values back to original data
+CR_final_1row <- CR_final_1row %>%
+  bind_cols(imputed_values %>% select(-.id))
+
+CR_sofa_imputed <- CR_final_1row %>%
+  select(recordid, score_respiration_imp, score_respiration, score_CVS, score_liver_imp,score_liver, 
+         score_coagulation,score_CNV, score_renal, sofa_score, crea, crea_imp) %>%
+  # new column is the sum of score_respiration_imp, score_CVS_imp, score_liver_imp, score_coagulation, score_CNV, score_renal
+  mutate(sofa_imputed = rowSums(select(., score_respiration_imp, score_CVS, score_liver_imp, score_coagulation, score_CNV, score_renal), na.rm = TRUE))
+skim(CR_sofa_imputed)
+
+
+# Convert columns to appropriate classes
+CR_final <- CR_final_1row %>%
   mutate(
     malignancy = if_else(cmb_comorbidities___mst == 1 | cmb_comorbidities___onc == 1, 1, 0),
     diabetes   = if_else(cmb_comorbidities___diad == 1 | cmb_comorbidities___diab == 1, 1, 0),
@@ -173,7 +218,8 @@ CR_final <- CR_final %>%
     # Continuous variables as numeric
     across(c(age_new, sofa_score, comorbidities_Chalson,  
              los_onset4, iculos_onset4, mvdur_onset4, mortday_onset4, delay, 
-             sofa_score_sum, sofa_score_median, sofa_imp,
+             #sofa_score_sum, sofa_score_median, 
+             sofa_imp,
              score_respiration, score_respiration_imp, score_coagulation, score_liver, score_liver_imp, score_CVS, score_CNV, score_renal,
              fbis_score,fup_day_onset4, qsofa,crea, crea_imp), as.numeric),
     
@@ -187,49 +233,26 @@ CR_final <- CR_final %>%
              cmb_comorbidities___diad, cmb_comorbidities___hop, cmb_comorbidities___oth, cmb_comorbidities___tub, cmb_comorbidities___renal,
              cmb_comorbidities___pep, cmb_comorbidities___liv, cmb_comorbidities___mld, cmb_comorbidities___mst,cmb_comorbidities___hivwa, cmb_comorbidities___hivna,
              cmb_comorbidities___mal, cmb_comorbidities___mlr, malignancy, diabetes, liver, renal,
-             delay_group, country_income2, hai_icu48days, hai_have_med_device___vent, monopoly), as.factor),
+             delay_group, country_income2, hai_icu48days, hai_have_med_device___vent, monopoly,
+             aci, pae, ent, cr_aci, cr_ent, cr_pae), as.factor),
     
     # Categorical variables as factor
     across(c(country_income, country, country_ab, org_combined_new, arm, arm2,arm3,number,
-             organism,ho_dischargestatus, hpd_admreason,d28_status), as.factor),
+             #organism,
+             ho_dischargestatus, hpd_admreason,d28_status), as.factor),
     
     # Date variables
     across(c(adm_date, date_enrolment,hpd_adm_date, hpd_hosp_date), ymd)
   ) 
 
-CR_final <- CR_final %>%
-  #relocate(spec_date_new, .after = spec_date) %>%
-  relocate(monopoly, .after = mono_poly) %>%
-  relocate(org_combined_new, .after = org_combined) %>%
-  # select(-spec_date) %>%
-  distinct() %>%
-  mutate(aci = ifelse(grepl("Acinetobacter", org_combined_new), 1, 0))
+skim(CR_final)
 
-length(unique(CR_final$recordid))  #982
+CR_final <- CR_final %>% filter(!grepl("Tigecycline|Fosfomycin", anti_onset4))
+length(unique(CR_final$recordid)) #668
 
-CRAB <- CR_final %>% filter(organism == "CRAB") 
-length(unique(CRAB$recordid)) #487
-nrow(CRAB) #487
-CRE_CRPAE <- CR_final %>% filter(organism == "CRE_CRPAE")
-length(unique(CRE_CRPAE$recordid)) #315
-nrow(CRE_CRPAE) #315
+# %>%   filter(monopoly == "monomicrobial")
 
-# filter rows with recordid more than 1 row
-check <- CRE_CRPAE %>%
-  group_by(recordid) %>%
-  filter(n() > 1) %>%
-  ungroup()
-
-# filter rows with organism is not NA
-CR_final_mono <- CR_final %>% filter(!is.na(organism)) #973
-length(unique(check$recordid)) #888
-nrow(check) #973
-
-check <- CR_final %>% select(recordid, org_combined_new, organism, monopoly, infection_types) %>%
-  filter(!is.na(organism))%>%
-  filter(monopoly == "monomicrobial")
-
-check2 <- CR %>% filter (recordid %in% check$recordid) 
+# check2 <- CR %>% filter (recordid %in% check$recordid) 
 ####=================================================###
 
 # CR_new_4 <- CR_new %>% select (recordid, organism, susceptibility, anti_onset4) %>% distinct %>%
@@ -306,11 +329,24 @@ check2 <- CR %>% filter (recordid %in% check$recordid)
   #   distinct()
 
 
-#Distribution of study arms
-# CR_final %>%
-#   count(arm) %>%
-#   arrange(desc(n)) %>%
-#   kable(col.names = c("Antibiotic", "Count"), caption = "Distribution of study arms")
+# Distribution of study arms
+CR_final %>%
+  count(arm) %>%
+  arrange(desc(n)) %>%
+  kable(col.names = c("Antibiotic", "Count"), caption = "Distribution of study arms")
+
+CR_final %>%
+  count(arm2) %>%
+  arrange(desc(n)) %>%
+  kable(col.names = c("Antibiotic", "Count"), caption = "Distribution of study arms")
+
+CR_final %>%
+  count(arm3) %>%
+  arrange(desc(n)) %>%
+  kable(col.names = c("Antibiotic", "Count"), caption = "Distribution of study arms")
+
+length(unique(CR_final$recordid)) #753 (with tige), 668 (no tige)
+nrow(CR_final) #668
 
 # Export to excel
 # library(writexl)
