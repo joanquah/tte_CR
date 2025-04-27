@@ -41,7 +41,6 @@ table1 <- CR_final %>%
     missing = "ifany" # Show missing data only if present
   ) %>%
   add_overall() 
-
 # %>%
 #   add_p(test = list(
 #     all_continuous() ~ "kruskal.test",  # Kruskal-Wallis test for continuous variables
@@ -50,9 +49,6 @@ table1 <- CR_final %>%
 
 print(table1)
 
-
-library(gtsummary)
-library(dplyr)
 
 # Pre-process data
 table1_data <- CR_final %>% 
@@ -144,7 +140,8 @@ lancet_table <- table1_data %>%
   add_overall(
     last = TRUE,
     col_label = "**Overall**\n(N = {N})"
-  ) %>%
+  ) 
+# %>%
   # add_p(
   #   test = list(
   #     all_continuous() ~ "kruskal.test",
@@ -152,29 +149,29 @@ lancet_table <- table1_data %>%
   #   ),
   #   pvalue_fun = function(x) style_pvalue(x, digits = 2)
   # ) %>%
-  modify_spanning_header(all_stat_cols() ~ "**Treatment Group**") %>%
-  bold_labels() %>%
-  as_gt() %>%
-  # Lancet-specific styling
-  gt::tab_options(
-    table.font.names = "Arial",
-    table.font.size = "90%",
-    column_labels.font.weight = "bold",
-    table.border.top.style = "solid",
-    table.border.bottom.style = "solid",
-    heading.border.bottom.style = "solid",
-    column_labels.border.top.style = "solid",
-    column_labels.border.bottom.style = "solid",
-    row_group.border.bottom.style = "none"
-  ) %>%
-  gt::tab_style(
-    style = cell_text(size = "small"),
-    locations = cells_body()
-  ) %>%
-  gt::tab_footnote(
-    footnote = "Data are median (IQR) for continuous variables and n (%) for categorical variables",
-    locations = cells_column_labels(columns = 1)
-  )
+  # modify_spanning_header(all_stat_cols() ~ "**Treatment Group**") %>%
+  # bold_labels() %>%
+  # as_gt() %>%
+  # # Lancet-specific styling
+  # gt::tab_options(
+  #   table.font.names = "Arial",
+  #   table.font.size = "90%",
+  #   column_labels.font.weight = "bold",
+  #   table.border.top.style = "solid",
+  #   table.border.bottom.style = "solid",
+  #   heading.border.bottom.style = "solid",
+  #   column_labels.border.top.style = "solid",
+  #   column_labels.border.bottom.style = "solid",
+  #   row_group.border.bottom.style = "none"
+  # ) %>%
+  # gt::tab_style(
+  #   style = cell_text(size = "small"),
+  #   locations = cells_body()
+  # ) %>%
+  # gt::tab_footnote(
+  #   footnote = "Data are median (IQR) for continuous variables and n (%) for categorical variables",
+  #   locations = cells_column_labels(columns = 1)
+  # )
 
 # Print table
 lancet_table
@@ -273,28 +270,29 @@ lancet_table <- table1_data %>%
   add_overall(
     last = TRUE,
     col_label = "**Overall**\n(N = {N})"
-  ) %>%
-  modify_spanning_header(all_stat_cols() ~ "**Treatment Group**") %>%
-  bold_labels() %>%
-  as_gt() %>%
-  gt::tab_options(
-    table.font.names = "Arial",
-    table.font.size = "90%",
-    column_labels.font.weight = "bold",
-    table.border.top.style = "solid",
-    table.border.bottom.style = "solid",
-    heading.border.bottom.style = "solid",
-    column_labels.border.top.style = "solid",
-    column_labels.border.bottom.style = "solid",
-    row_group.border.bottom.style = "none"
-  ) %>%
-  gt::tab_style(
-    style = cell_text(size = "small"),
-    locations = cells_body()
-  ) %>%
-  gt::tab_footnote(
-    footnote = "Data are median (IQR) for continuous variables and n (%) for categorical variables",
-    locations = cells_column_labels(columns = 1)
+  ) 
+# %>%
+#   modify_spanning_header(all_stat_cols() ~ "**Treatment Group**") %>%
+#   bold_labels() %>%
+#   as_gt() %>%
+#   gt::tab_options(
+#     table.font.names = "Arial",
+#     table.font.size = "90%",
+#     column_labels.font.weight = "bold",
+#     table.border.top.style = "solid",
+#     table.border.bottom.style = "solid",
+#     heading.border.bottom.style = "solid",
+#     column_labels.border.top.style = "solid",
+#     column_labels.border.bottom.style = "solid",
+#     row_group.border.bottom.style = "none"
+#   ) %>%
+#   gt::tab_style(
+#     style = cell_text(size = "small"),
+#     locations = cells_body()
+#   ) %>%
+#   gt::tab_footnote(
+#     footnote = "Data are median (IQR) for continuous variables and n (%) for categorical variables",
+#     locations = cells_column_labels(columns = 1)
   )
 
 # Print table

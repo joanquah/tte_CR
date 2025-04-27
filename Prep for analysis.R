@@ -4,6 +4,7 @@
 ## TARGET TRIAL EMULATION ##
 ############################
 
+
 # cci
 cmb <- baseline_outcomes_index %>% select (recordid, hpd_admreason, cmb_comorbidities___none, cmb_comorbidities___aids, cmb_comorbidities___onc, cmb_comorbidities___cpd, cmb_comorbidities___cog, cmb_comorbidities___rheu, cmb_comorbidities___dem, cmb_comorbidities___diab, cmb_comorbidities___diad, cmb_comorbidities___hop, cmb_comorbidities___hivwa, cmb_comorbidities___hivna, cmb_comorbidities___mlr, cmb_comorbidities___mal, cmb_comorbidities___mst, cmb_comorbidities___mld, cmb_comorbidities___liv, cmb_comorbidities___pep, cmb_comorbidities___renal, cmb_comorbidities___tub, cmb_comorbidities___oth,
                                            )%>%
@@ -53,10 +54,6 @@ colnames(sofa_all) <- make.names(colnames(sofa_all), unique = TRUE)
 CR_sofa_all <- sofa_all %>% filter(recordid %in% CR_final$recordid)
 CR_sofa_new <- sofa_new %>% filter(recordid %in% CR_final$recordid)
 # median_sofa <- median(CR_sofa_new$sofa_score, na.rm = TRUE)
-CR_sofa_new[CR_sofa_new$recordid == "PK-003-A0-0093", "score_CVS"] <- 0
-CR_sofa_new[CR_sofa_new$recordid == "PK-003-A0-0100", "score_CVS"] <- 0
-CR_sofa_new[CR_sofa_new$recordid == "PK-003-A0-0105", "score_CVS"] <- 0
-
 
 # Ignore NA and Sum Available Scores (the total SOFA score for that patient may be underestimated, but it might still be valid depending on your study goal, This method is acceptable if the missingness is random and the missing values are not due to a systematic issue.)
 CR_sofa_new$sofa_score_sum <- rowSums(CR_sofa_new[, c("score_respiration", "score_coagulation", 
@@ -74,6 +71,8 @@ CR_final[CR_final$recordid == "PK-003-A0-0100", "score_CVS"] <- 0
 CR_final[CR_final$recordid == "PK-003-A0-0105", "score_CVS"] <- 0
 CR_final[CR_final$recordid == "MY-003-A0-0085", "score_CVS"] <- 0
 CR_final[CR_final$recordid == "PK-003-A0-0319", "score_CVS"] <- 0
+CR_final[CR_final$recordid == "MY-003-A0-0060", "score_CVS"] <- 0
+CR_final[CR_final$recordid == "SL-001-A0-0050", "score_CVS"] <- 0
 
 
 length(unique(CR_final$recordid)) #982
@@ -85,7 +84,6 @@ CR_final <- CR_final %>%
   left_join(cmb, by = "recordid")%>%
   left_join(cre, by = "recordid") %>%
   left_join(CR_icu, by = "recordid") %>%
-  left_join(CR_combined_new, by= "recordid") %>%
   #for country_income2, change to 2 groups upper middle income and high income, low income and low middle income
   mutate(country_income2 = ifelse(country_income == "Low income" | country_income == "Lower middle income", "Low income and Lower middle income", "Upper middle income and High income")) %>%
   relocate(country_income2, .after = country_income) 
@@ -124,25 +122,7 @@ CR_final <- CR_final %>%
 # cre <- cre %>%  select(recordid, crea)
 
 
-CR_final <- CR_final %>%
-  #relocate(spec_date_new, .after = spec_date) %>%
-  relocate(monopoly, .after = mono_poly) %>%
-  relocate(org_combined_new, .after = org_combined) %>%
-  # select(-spec_date) %>%
-  distinct() %>%
-  mutate(aci = ifelse(grepl("Acinetobacter|acinetobacter baumini", org_combined_new), 1, 0)) %>%
-  mutate(pae= ifelse(grepl("Pseudomonas", org_combined_new), 1, 0)) %>%
-  mutate(ent= ifelse(grepl("Enterobacter|Serratia|K. pneumoniae|Klebsiella|Aeromonas|Enterobacter|E. coli|Proteus|Providencia|Morganella|Proteus|Serratia|Citrobacter|Aeromonas", org_combined_new), 1, 0))%>%
-  group_by(recordid) %>%
-  mutate(
-    cr_aci = ifelse(any(organism == "CRAB", na.rm = TRUE), 1, 0),
-    cr_ent = ifelse(any(organism == "CRE", na.rm = TRUE), 1, 0),
-    cr_pae = ifelse(any(organism == "CRPAE", na.rm = TRUE), 1, 0)
-  ) %>%
-  ungroup()
-
-
-check <- CR_final %>% select(recordid, onset4, org_combined_new, organism, monopoly, anti_onset4, infection_types, aci, pae, ent, cr_aci, cr_ent, cr_pae) 
+length(unique(CR_final$recordid)) #859 (26 apr)  #740 if select resistant only in CR
 
 CR_final_1row <-CR_final %>% select(-organism) %>% distinct() 
 length(unique(CR_final_1row$recordid)) #753
@@ -221,7 +201,7 @@ CR_final <- CR_final_1row %>%
              #sofa_score_sum, sofa_score_median, 
              sofa_imp,
              score_respiration, score_respiration_imp, score_coagulation, score_liver, score_liver_imp, score_CVS, score_CNV, score_renal,
-             fbis_score,fup_day_onset4, qsofa,crea, crea_imp), as.numeric),
+             fup_day_onset4, qsofa,crea, crea_imp), as.numeric),
     
     # Binary variables as factor
     across(c(sex, adm_ward_types_new, infection_types, icu_at_onset4, vent_at_onset4, 
@@ -246,10 +226,10 @@ CR_final <- CR_final_1row %>%
   ) 
 
 skim(CR_final)
-
-CR_final <- CR_final %>% filter(!grepl("Tigecycline|Fosfomycin", anti_onset4))
-length(unique(CR_final$recordid)) #668
-
+###===========================================================================================================###
+# Checking
+check <- CR_final %>% select(recordid,inf_onset.x,hpd_adm_date, hpd_hosp_date,ho_discharge_date, ho_dischargestatus, 
+                             fup_day_onset4, d28_status, d28_date, first28_death, d28_death_date,mort_21d_onset4, mortday_onset4  ) 
 # %>%   filter(monopoly == "monomicrobial")
 
 # check2 <- CR %>% filter (recordid %in% check$recordid) 
@@ -329,24 +309,22 @@ length(unique(CR_final$recordid)) #668
   #   distinct()
 
 
-# Distribution of study arms
-CR_final %>%
-  count(arm) %>%
-  arrange(desc(n)) %>%
-  kable(col.names = c("Antibiotic", "Count"), caption = "Distribution of study arms")
+# # Distribution of study arms
+# CR_final %>%
+#   count(arm) %>%
+#   arrange(desc(n)) %>%
+#   kable(col.names = c("Antibiotic", "Count"), caption = "Distribution of study arms")
+# 
+# CR_final %>%
+#   count(arm2) %>%
+#   arrange(desc(n)) %>%
+#   kable(col.names = c("Antibiotic", "Count"), caption = "Distribution of study arms")
+# 
+# CR_final %>%
+#   count(arm3) %>%
+#   arrange(desc(n)) %>%
+#   kable(col.names = c("Antibiotic", "Count"), caption = "Distribution of study arms")
 
-CR_final %>%
-  count(arm2) %>%
-  arrange(desc(n)) %>%
-  kable(col.names = c("Antibiotic", "Count"), caption = "Distribution of study arms")
-
-CR_final %>%
-  count(arm3) %>%
-  arrange(desc(n)) %>%
-  kable(col.names = c("Antibiotic", "Count"), caption = "Distribution of study arms")
-
-length(unique(CR_final$recordid)) #753 (with tige), 668 (no tige)
-nrow(CR_final) #668
 
 # Export to excel
 # library(writexl)

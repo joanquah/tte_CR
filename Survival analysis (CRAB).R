@@ -1,14 +1,14 @@
 # Check analysis
 # Plot survival curve
 
-crab <- crab %>% select (recordid, arm, arm2, age_new,sex, country_income, country_income2, 
-                                   comorbidities_Chalson, sofa_imp,qsofa,crea_imp,
-                                   malignancy, diabetes, liver, renal, 
-                                   infection_types,
-                                   fup_day_onset4, mort_21d_onset4,  mort_14d_onset4, mortday_onset4,
-                                   monopoly,aci, pae, ent, delay_group, delay,  
-                                   hai_icu48days, hai_have_med_device___vent, icu_at_onset4,vent_at_onset4, los_onset4
-)
+# crab <- crab %>% select (recordid, arm, arm2, age_new,sex, country_income, country_income2, 
+#                                    comorbidities_Chalson, sofa_imp,qsofa,crea_imp,
+#                                    malignancy, diabetes, liver, renal, 
+#                                    infection_types,
+#                                    fup_day_onset4, mort_21d_onset4,  mort_14d_onset4, mortday_onset4,
+#                                    monopoly,aci, pae, ent, delay_group, delay,  
+#                                    hai_icu48days, hai_have_med_device___vent, icu_at_onset4,vent_at_onset4, los_onset4
+# )
 
 unique(crab$arm)
 
@@ -56,13 +56,9 @@ ggplot(new_data, aes(y = arm, x = risk)) +
   xlim(0, 1) +  # Ensure risk estimates range from 0 to 1
   theme_minimal()
 
-# Data correction to change 
-# remove PK-002-A0-0357 from the dataset
-crab <- crab[crab$recordid != "PK-002-A0-0357",]
-
 # Expand dataset based on survival time and fits pooled logistic regression models to estimate risks over time
 # Creating survtime variable that represents the duration (in days) of follow-up
-crab$survtime <-ifelse(crab$mortday_onset4 == 0, 21, crab$mortday_onset4)
+crab$survtime <-ifelse(crab$mortday_onset4 == 0, 20, crab$mortday_onset4)
 
 # Expanding the dataset using the survtime variable
 crab.surv <- uncount(crab, survtime,.remove = F)
@@ -103,13 +99,13 @@ exp(fit.pool3$coefficients)
 # Create datasets to store results
 # Include all time points under each treatment level
 results0 <- data.frame(arm = "Polymyxin monotherapy", 
-                       time =seq(0,21), timesq=seq(0,21)^2)
+                       time =seq(0,20), timesq=seq(0,20)^2)
 results1 <- data.frame(arm = "Polymyxin combination",
-                       time =seq(0,21), timesq=seq(0,21)^2)
+                       time =seq(0,20), timesq=seq(0,20)^2)
 results2 <- data.frame(arm = "Polymyxin Sulbactam",
-                       time =seq(0,21), timesq=seq(0,21)^2)
+                       time =seq(0,20), timesq=seq(0,20)^2)
 results3 <- data.frame(arm = "Sulbactam based",
-                       time =seq(0,21), timesq=seq(0,21)^2)
+                       time =seq(0,20), timesq=seq(0,20)^2)
 
 # Obtain predicted hazards from pooled logistic regression model
 results0$hazard0 <- predict(fit.pool3, results0, type="response")
@@ -162,10 +158,10 @@ ggplot(results_combined, aes(x=time_updated)) +
   theme(legend.position="bottom")
 
 #  Risk at end of follow-up
-risk0 <-results0[results0$time==21,]$risk0
-risk1 <-results1[results1$time==21,]$risk1
-risk2 <-results2[results2$time==21,]$risk2
-risk3 <-results3[results3$time==21,]$risk3
+risk0 <-results0[results0$time==20,]$risk0
+risk1 <-results1[results1$time==20,]$risk1
+risk2 <-results2[results2$time==20,]$risk2
+risk3 <-results3[results3$time==20,]$risk3
 risk0
 risk1
 risk2
@@ -226,10 +222,10 @@ results2$upper_CI_risk2 <- 1 - (results2$surv2 * exp(-1.96 * results2$se_surv2 /
 results3$lower_CI_risk3 <- 1 - (results3$surv3 * exp(1.96 * results3$se_surv3 / results3$surv3))
 results3$upper_CI_risk3 <- 1 - (results3$surv3 * exp(-1.96 * results3$se_surv3 / results3$surv3))
 
-risk0 <- results0[results0$time == 21, c("risk0", "lower_CI_risk0", "upper_CI_risk0")]
-risk1 <- results1[results1$time == 21, c("risk1", "lower_CI_risk1", "upper_CI_risk1")]
-risk2 <- results2[results2$time == 21, c("risk2", "lower_CI_risk2", "upper_CI_risk2")]
-risk3 <- results3[results3$time == 21, c("risk3", "lower_CI_risk3", "upper_CI_risk3")]
+risk0 <- results0[results0$time == 20, c("risk0", "lower_CI_risk0", "upper_CI_risk0")]
+risk1 <- results1[results1$time == 20, c("risk1", "lower_CI_risk1", "upper_CI_risk1")]
+risk2 <- results2[results2$time == 20, c("risk2", "lower_CI_risk2", "upper_CI_risk2")]
+risk3 <- results3[results3$time == 20, c("risk3", "lower_CI_risk3", "upper_CI_risk3")]
 
 print(risk0)
 print(risk1)
@@ -433,10 +429,10 @@ results2$upper_CI_risk2 <- 1 - (results2$surv2 * exp(-1.96 * results2$se_surv2 /
 results3$lower_CI_risk3 <- 1 - (results3$surv3 * exp(1.96 * results3$se_surv3 / results3$surv3))
 results3$upper_CI_risk3 <- 1 - (results3$surv3 * exp(-1.96 * results3$se_surv3 / results3$surv3))
 
-risk0 <- results0[results0$time == 21, c("risk0", "lower_CI_risk0", "upper_CI_risk0")]
-risk1 <- results1[results1$time == 21, c("risk1", "lower_CI_risk1", "upper_CI_risk1")]
-risk2 <- results2[results2$time == 21, c("risk2", "lower_CI_risk2", "upper_CI_risk2")]
-risk3 <- results3[results3$time == 21, c("risk3", "lower_CI_risk3", "upper_CI_risk3")]
+risk0 <- results0[results0$time == 20, c("risk0", "lower_CI_risk0", "upper_CI_risk0")]
+risk1 <- results1[results1$time == 20, c("risk1", "lower_CI_risk1", "upper_CI_risk1")]
+risk2 <- results2[results2$time == 20, c("risk2", "lower_CI_risk2", "upper_CI_risk2")]
+risk3 <- results3[results3$time == 20, c("risk3", "lower_CI_risk3", "upper_CI_risk3")]
 
 print(risk0)
 print(risk1)
@@ -453,10 +449,9 @@ library(nnet)
 # Fit multinomial logistic regression model
 
 model2 <- multinom (arm ~ age_new + sex + country_income2 + comorbidities_Chalson + 
-                      diabetes + malignancy + renal + liver +
                       sofa_imp + infection_types + 
                       los_onset4 + hai_icu48days + hai_have_med_device___vent + monopoly +
-                      delay + aci,
+                      delay + ent + pae,
                     data=crab)
 summary(model2) 
 
@@ -490,7 +485,6 @@ summary(model2c) #
 #Use the predicted probabilities from this model to estimate nonstabilized IP weights
 # Generate predicted probabilities for each treatment arm
 crab$prob_matrix <- predict(model2, newdata = crab, type = "probs") # returns a matrix where each row represents an individual, and each column represents the predicted probability of receiving each treatment.
-head(crab$prob_matrix) 
 
 # For each patient, select the probability corresponding to the treatment they actually received.
 # Extract the probability corresponding to the observed treatment for each row
@@ -519,8 +513,8 @@ options(warn=-1) # Need to suppress warning or else geeglm will encounter error 
 # msm.w <- geeglm(mort_21d_ast ~ arm, data=crab, weights=w2, id=recordid, family=binomial())
 msm.w <- glm(mort_21d_onset4 ~ arm, data=crab, family=binomial(), weights=w2)
 summary(msm.w)
-exp(coef(msm.w))  # Convert log-odds to odds ratios
-exp(confint(msm.w))  # 95% confidence interval for odds ratios
+#exp(coef(msm.w))  # Convert log-odds to odds ratios
+#exp(confint(msm.w))  # 95% confidence interval for odds ratios
 
 # Outputting risks
 new_data <- data.frame(arm = levels(crab$arm))
@@ -554,7 +548,17 @@ ggplot(new_data, aes(y = arm, x = risk)) +
         axis.title = element_text(size = 14))
 
 #################################### Stop here#################################
+# Get marginal probability of each arm
+marginal_probs <- prop.table(table(CR_final$arm2))
+# Stabilized weight = P(treatment group) / P(treatment group | covariates)
+CR_final$sw <- mapply(function(arm, p) {
+  marginal_probs[arm] / p
+}, arm = CR_final$arm2, p = CR_final$prob)
 
+summary(CR_final$sw)
+sd(CR_final$sw)
+
+####
 # Estimation of stabilized ip weights 
 # Fit a multinomial logistic regression model for treatment assignment
 stab <- multinom(arm~ 1, data = crab)
@@ -618,13 +622,13 @@ exp(fit.pool.w2$coefficients)
 # Create datasets to store results
 # Include all time points under each treatment level
 results0.w2 <- data.frame(arm = "Polymyxin monotherapy", 
-                          time =seq(0,21), timesq=seq(0,21)^2)
+                          time =seq(0,20), timesq=seq(0,20)^2)
 results1.w2 <- data.frame(arm = "Polymyxin combination",
-                          time =seq(0,21), timesq=seq(0,21)^2)
+                          time =seq(0,20), timesq=seq(0,20)^2)
 results2.w2 <- data.frame(arm = "Polymyxin Sulbactam",
-                          time =seq(0,21), timesq=seq(0,21)^2)
+                          time =seq(0,20), timesq=seq(0,20)^2)
 results3.w2 <- data.frame(arm = "Sulbactam based",
-                          time =seq(0,21), timesq=seq(0,21)^2)
+                          time =seq(0,20), timesq=seq(0,20)^2)
 
 # Obtain predicted hazards from pooled logistic regression model
 results0.w2$hazard0 <- predict(fit.pool.w2, results0.w2, type="response")
@@ -645,10 +649,10 @@ results2.w2$risk2 <- 1 - results2.w2$surv2
 results3.w2$risk3 <- 1 - results3.w2$surv3
 
 # Risks at end of follow-up
-risk0.w2 <-results0.w2[results0.w2$time==21,]$risk0
-risk1.w2 <-results1.w2[results1.w2$time==21,]$risk1
-risk2.w2 <-results2.w2[results2.w2$time==21,]$risk2
-risk3.w2 <-results3.w2[results3.w2$time==21,]$risk3
+risk0.w2 <-results0.w2[results0.w2$time==20,]$risk0
+risk1.w2 <-results1.w2[results1.w2$time==20,]$risk1
+risk2.w2 <-results2.w2[results2.w2$time==20,]$risk2
+risk3.w2 <-results3.w2[results3.w2$time==20,]$risk3
 risk0.w2
 risk1.w2
 risk2.w2
@@ -831,18 +835,18 @@ ggplot(results_combined, aes(x = time_updated)) +
   scale_color_manual(
     name = "Treatment",
     values = c(
-      "Polymyxin Sulbactam" = "#00468B",
-      "Polymyxin combination" = "#ED0000",
-      "Polymyxin monotherapy" = "#42B540",
+      "Polymyxin Sulbactam" = "#0066FF",
+      "Polymyxin combination" = "#FF0000",
+      "Polymyxin monotherapy" = "#00CC00",
       "Sulbactam based" = "#F0E442"
     )
   ) +
   scale_fill_manual(
     name = "Treatment",
     values = c(
-      "Polymyxin Sulbactam" = "#00468B",
-      "Polymyxin combination" = "#ED0000",
-      "Polymyxin monotherapy" = "#42B540",
+      "Polymyxin Sulbactam" = "#0066FF",
+      "Polymyxin combination" = "#FF0000",
+      "Polymyxin monotherapy" = "#00CC00",
       "Sulbactam based" = "#F0E442"
     )
   ) +
@@ -866,10 +870,10 @@ ggplot(results_combined, aes(x = time_updated)) +
 
 
 #  Risk at end of follow-up
-risk0 <-results0[results0$time==21,]$risk0
-risk1 <-results1[results1$time==21,]$risk1
-risk2 <-results2[results2$time==21,]$risk2
-risk3 <-results3[results3$time==21,]$risk3
+risk0 <-results0[results0$time==20,]$risk0
+risk1 <-results1[results1$time==20,]$risk1
+risk2 <-results2[results2$time==20,]$risk2
+risk3 <-results3[results3$time==20,]$risk3
 risk0
 risk1
 risk2

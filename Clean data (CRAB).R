@@ -1,45 +1,4 @@
-# Clean data for analysis
-library(tidyr)
-library(knitr)
-library(dplyr)
-library(ggplot2)
-library(car)  # For deltaMethod for CI
-library(skimr)
-library(lubridate)
-library(data.table)
-library(survival)
-library(survminer)
-library(gtsummary) #For baseline table
-library(nnet) # For multinomial log regression
-library(tableone)
-library(stringr) # For string manipulation
-library(cobalt) # SMD
-library(mice)
-
-# From clean data
-infection_types_index <- inf_add
-baseline_outcomes_index <- df_baseline_all
-ast_all <- all_ast_merged 
-ast_all_index <- all_ast_merged_index
-anti_treat
-anti_treat_index <- anti_treat_index_new
-all_vap_bsi
-vap_bsi_index
-
-length(unique(ast_all$recordid)) #9369
-length(unique(baseline_outcomes_index$recordid)) #9678
-length(unique(f02$recordid)) #9171
-
-f07a <- read.csv("C:/Users/Joan/Downloads/data/raw data/ACORNHAI-F07aNew_DATA_2025-04-07_1345.csv", header = TRUE, sep = ",")
-f07e <- read.csv("C:/Users/Joan/Downloads/data/raw data/ACORNHAI-F07eNew_DATA_2025-04-07_1346.csv", header = TRUE, sep = ",")
-f07m <- read.csv("C:/Users/Joan/Downloads/data/raw data/ACORNHAI-F07mNew_DATA_2025-04-07_1347.csv", header = TRUE, sep = ",")
-f02 <- read.csv("C:/Users/Joan/Downloads/data/raw data/ACORNHAI-F02New_DATA_2025-04-07_1344.csv", header = TRUE, sep = ",")
-
-# Run correction code
-
-checkast <-ast_all%>% select(recordid,spec_date, org_names_all, pathogen_group,ris_Carbapenems, Meropenem)
-length(unique(ast_all$recordid)) #9369
-
+# Clean data for analysis (CRAB)
 CR <- checkast %>%
   mutate(recordid = ifelse(grepl("_BSI|_VAP", recordid), sub("_BSI|_VAP", "", recordid), recordid)) %>%
   mutate(susceptibility = case_when(
@@ -47,37 +6,26 @@ CR <- checkast %>%
     ris_Carbapenems == 1 ~ "Resistant",
     ris_Carbapenems %in% c(4, 5) ~ "Unknown"
   )) %>%
+  # filter(!(susceptibility == "Susceptible"))%>%
+  # filter(susceptibility =="Resistant") %>%
   mutate(organism = case_when(
-    # Assign "CRAB" only if org_names_all matches AND susceptibility is NOT "Susceptible"
-    org_names_all %in% c("Acinetobacter", "acinetobacter spp", "acinetobacter baumini") & 
-      susceptibility != "Susceptible" ~ "CRAB",
-    
-    # Assign "CRE" only if org_names_all matches AND susceptibility is NOT "Susceptible"
-    org_names_all %in% c("K. pneumoniae", "E. coli", 
-                         "Serratia", "Proteus", "Providencia", "Morganella", 
-                         "Enterobacter", "Enterobacter aerogenes", "Enterobacter cloacae", 
+    org_names_all %in% c("Acinetobacter", "acinetobacter spp", "acinetobacter baumini") ~ "CRAB",
+    org_names_all %in% c("Pseudomonas", "K. pneumoniae", "E. coli", 
+                         "Serratia", "Proteus", 
+                         "Enterobacter", "Enterobacter aerogenes","Enterobacter cloacae", 
                          "Klebsiella", "Klebsiella acidogenes", "Klebsiella oxytocin",
-                         "Citrobacter") & 
-      susceptibility != "Susceptible" ~ "CRE",
-    
-    # Assign "CRE" only if org_names_all="Pseudomonas" AND susceptibility is NOT "Susceptible"
-    org_names_all %in% c("Pseudomonas", "pseudomonas spp", "pseudomonas aeruginosa") & 
-      susceptibility != "Susceptible" ~ "CRPAE",
-    
-    # Default to NA if no match or susceptibility is "Susceptible"
-    TRUE ~ NA_character_
-  )) %>%
-  filter(organism == "CRE"|organism =="CRAB"|organism =="CRPAE") %>%
-  #filter(!(susceptibility == "Susceptible"))%>%
-  filter(susceptibility =="Resistant")
+                         "Morganella","Citrobacter"
+    ) ~ "CRE_CRPAE",
+    TRUE ~ NA_character_  
+  ))
 
-length(unique(CR$recordid)) # 3610  # 3780  #9369  #3859 CNS  # 3078 CR
+length(unique(CR$recordid)) # 3610  # 3780   #9369
 
 outcome <- baseline_outcomes_index %>% 
   select(recordid, date_enrolment,age_new, age_group, country_income, country, country_ab, sex, hpd_adm_date, hpd_hosp_date, inf_onset,
          comorbidities_Chalson, sofa_score,adm_ward_types_new, infection_types, adm_ward_types_new, UTI_source,
          ho_discharge_date, ho_dischargestatus, d28_date,d28_status,d28_death_date,first28_death, 
-         mortality,mortality_date, score_respiration,score_coagulation,score_liver,score_CVS,score_CNV, score_renal,
+         mortality,mortality_date, score_respiration,score_coagulation,score_liver,score_CVS,score_CNV, score_renal, fbis_score,
   ) %>%
   mutate(infection_types = ifelse(infection_types %in% c("Hospital-acquired BSI", "Healthcare-associated BSI"), "BSI", infection_types))%>%
   filter(age_group==1)%>% 
@@ -85,38 +33,34 @@ outcome <- baseline_outcomes_index %>%
   mutate(country_income = ifelse(country_ab == "IN", "Lower middle income", country_income)) %>%
   mutate(adm_date = pmin(hpd_adm_date, hpd_hosp_date, na.rm = TRUE)) 
 
-length(unique(outcome$recordid)) #7882 adult with baseline and outcome data
+length(unique(outcome$recordid)) #7498   #7882
 
 CR2 <- CR %>% inner_join(outcome, by = "recordid") %>% distinct() %>%
   mutate(
     inf_onset = as.Date(inf_onset),
     spec_date = as.Date(spec_date),
     #ast_date = as.Date(ast_date),
-    mortality_date = as.Date(mortality_date)) %>%  #2451 adult inpatients who has CR
+    mortality_date = as.Date(mortality_date)) %>%  
   filter(!(mortality_date == inf_onset & !is.na(mortality_date))) %>% 
-  filter(!(mortality_date == (inf_onset + 1))| is.na(mortality_date))%>%   #2283 adult pts who had CR and did not die within 1 day of infection onset
+  filter(!(mortality_date == (inf_onset + 1))| is.na(mortality_date))%>%   #1639 adult pts who had CR and did not die within 1 day of infection onset
   select(recordid, inf_onset, spec_date, ho_discharge_date, ho_dischargestatus,d28_date,d28_status,mortality, mortality_date, 
-         everything())%>%  
+         #ast_date, 
+         everything())%>%
   filter(!(is.na(ho_discharge_date) & is.na(ho_dischargestatus) & is.na(mortality) & is.na(mortality_date) & is.na(d28_date) & is.na(d28_status)))
 
-length(unique(CR2$recordid)) #2667 #2843  #7110  #2260 adult inpatient who did not die within 1 day and has baseline and outcme data
-
-# Data correction to change 
-# remove PK-002-A0-0357 from the dataset
-CR2 <- CR2[CR2$recordid != "PK-002-A0-0357",]
-length(unique(CR2$recordid)) #2259 adult inpatient who did not die within 1 day and has baseline and outcme data
+length(unique(CR2$recordid)) #2667   #2843  #4963  #7110
 
 abx_all <- anti_treat %>% 
   filter(!is.na(anti_start)) %>%
   filter(!is.na(anti_names)) %>%
   mutate(anti_new = case_when(
-    anti_names %in% c("Imipenem", "Meropenem", "Doripenem") ~ "Carbapenem",
+    anti_names %in% c("Ertapenem", "Imipenem", "Meropenem", "Doripenem") ~ "Carbapenem",
     anti_names %in% c("Colistin", "Polymyxin B") ~ "Polymyxin",
     anti_names %in% c("Ampicillin/sulbactam", "Cefoperazone/sulbactam") ~ "Sulbactam",
     anti_names == "Ceftazidime/avibactam" ~ "Ceftazidime/avibactam",
     anti_names == "Tigecycline"  ~ "Tigecycline",
     TRUE ~ anti_names
-  )) 
+  ))
 
 abx <- abx_all %>%
   group_by(recordid) %>%
@@ -124,7 +68,7 @@ abx <- abx_all %>%
   ungroup()
 
 CR_abx2 <- abx %>% inner_join(CR2, by = "recordid") %>% distinct()
-length(unique(CR_abx2$recordid)) #1439   #1538  #2251  # 1429 received studied drug (polymyxin or sulbactam or ceftazidime avibactam)
+length(unique(CR_abx2$recordid)) #1449  #1790 #2251
 
 excluded_names <- c(
   "Amphotericin B", "Other_Fluconazole", "Caspofungin","Other_Voriconazole", "Anidulafungin", 'Voriconazole',"Fluconazole","Posaconazole",
@@ -140,12 +84,12 @@ excluded_names <- c(
   "Ceftolozane/tazobactum", "Ceftolozane/tazobactam","Ertapenem")
 
 
-CR_abx2 <- CR_abx2[!is.na(CR_abx2$anti_names) & !CR_abx2$anti_names %in% excluded_names, ] 
+CR_abx2 <- CR_abx2[!is.na(CR_abx2$anti_names) & !CR_abx2$anti_names %in% excluded_names, ] # 1509
 
-length(unique(CR_abx2$recordid)) #1439   #1538 #2251  #1556 had qualifying antibiotics # 1429 received studied drug (polymyxin or sulbactam or ceftazidime avibactam)
+length(unique(CR_abx2$recordid)) #1449  #1790  #2251
 
- # # Define the antibiotics of interest
-# abx_to_exclude <- c("Ceftazidime/avibactam", "Colistin", "Polymyxin B")
+# Define the antibiotics of interest
+# abx_to_exclude <- c("Cefoperazone/sulbactam", "Ampicillin/sulbactam", "Colistin", "Polymyxin B")
 # #,"Cefoperazone/sulbactam")
 # 
 # # Identify recordid to exclude
@@ -155,22 +99,18 @@ length(unique(CR_abx2$recordid)) #1439   #1538 #2251  #1556 had qualifying antib
 #   distinct(recordid)
 
 CR_names <- CR_abx2 %>% 
-  mutate(spec_day = as.integer(difftime(spec_date, inf_onset, units = "days")))%>%
-  relocate(spec_day, .after = spec_date) %>% 
-  #filter(spec_day<6)
-  filter(spec_day<6) %>%    #1270
   mutate(onset4 = inf_onset + 4)%>% relocate(onset4, .after = spec_date) %>%
   mutate(onset5 = inf_onset + 5) %>% relocate(onset5, .after = onset4) %>%
   select(recordid, organism, adm_date, inf_onset, spec_date, onset4, onset5, anti_names, anti_new, anti_start, anti_end, susceptibility)%>%
   mutate (delay = as.numeric(difftime(anti_start, inf_onset, units = "days")))%>%
-  filter(delay >= -5 | anti_new == "Carbapenem") %>% #1241
+  filter(delay >= -5 | anti_new == "Carbapenem") %>%
   # filter(!recordid %in% recordid_to_exclude$recordid) %>%
-  filter(delay <= 5) %>%  #1195
+  filter(delay <= 5) %>%
   mutate(dur = as.integer(difftime(anti_end, anti_start, units = "days"))) %>%
   mutate (dur = dur+1) %>%
-  # filter(dur>2) %>%
+  #filter(dur>2) %>%
   filter(onset4 >= anti_start & onset4 < anti_end) %>%
-  # filter(onset5 >= anti_start & onset5 < anti_end) %>%
+  filter(onset5 >= anti_start & onset5 < anti_end) %>%
   mutate(anti_names = case_when(
     recordid == "BN-001-A0-0028" & anti_start == ymd("2024-01-27") & anti_end == ymd("2024-02-09") & anti_names == "Colistin" ~ "Neb Col",
     recordid == "MG-001-A0-0001" & anti_start == ymd("2023-03-31") & anti_end == ymd("2023-04-10") & anti_names == "Colistin" ~ "Neb Col",
@@ -199,6 +139,7 @@ CR_names <- CR_abx2 %>%
   ))%>%
   group_by(recordid) %>%
   mutate(
+    #anti_ast = paste(unique(anti_names[ast_date >= anti_start & ast_date <= anti_end]), collapse = " + "),
     anti_onset4   = paste(unique(anti_names[onset4 >= anti_start & onset4 <= anti_end]), collapse = " + "),
     anti_onset5   = paste(unique(anti_names[onset5 >= anti_start & onset5 <= anti_end]), collapse = " + ")
   ) %>%
@@ -206,11 +147,13 @@ CR_names <- CR_abx2 %>%
     anti_onset4_s   = paste(unique(anti_new[onset4 >= anti_start & onset4 <= anti_end]), collapse = " + "),
   ) %>%
   ungroup()%>% 
-  distinct()  #929
-   #903 qualified ITT  #849 initiated studied drug within 5 days from infection onset
+  mutate(spec_day = as.integer(difftime(spec_date, inf_onset, units = "days")))%>%
+  relocate(spec_day, .after = spec_date) %>%
+  distinct() %>%
+  #filter(spec_day<6)
+  filter(spec_day<5)
 
-length(unique(CR_names$recordid)) #1290. For onset 4 988 for ITT, 976 for PP; For onset5 94 for ITT, 941 for PP   # 849  #957 after fixing 1 line
-#CR_names <- CR_names %>% select (recordid, organism, susceptibility, anti_ast, anti_onset4,anti_onset5) %>% distinct
+length(unique(CR_names$recordid)) #974 #944 #903 #954 #1290
 
 CR_names_4 <- CR_names %>%
   mutate(arm = case_when(
@@ -262,12 +205,16 @@ CR_names_4 <- CR_names %>%
     str_count(anti_onset4_s, "\\+") >= 2 ~ "Triple or more (≥3 drugs)" # Two or more '+' means 3+ drugs
   )) %>%
   distinct() 
+#%>%
+#filter(organism == "CRE_CRPAE", !is.na(arm3))
+# filter(organism == "CRAB") 
 
-table(CR_names_4$arm) # 90 ceftazidime/avibactam,  125 polymyxin monotherapy,  333 polymyxin combination
-length(unique(CR_names_4$recordid)) #316 #336  #310  #982  #753  #796 had studied drug on index date
+# Filter CRE_CRPAE abd is not NA first
+table(CR_names_4$arm3) # 90,333,127
 
+length(unique(CR_names_4$recordid)) #504  #511 #515  #534
+check <- CR_names_4 %>% select(recordid, org, anti_onset4, anti_onset4_s, arm, arm2, arm3) %>% distinct()
 
-#####
 # ICU and MV
 icu_mv <- baseline_outcomes_index %>% 
   select (recordid,"icu_hd_ap","icu_hd_ap_1","icu_hd_ap_1_2","icu_hd_ap_1_1",            
@@ -280,8 +227,9 @@ icu_mv <- baseline_outcomes_index %>%
           "mv_ap_4_2","mv_ap_4_1", "mv_ap_4_3","mv_ap_5_2",               
           "mv_ap_5_1","mv_ap_5_3")
 
+CR_combined <- left_join(CR_names_4, icu_mv, by = "recordid") %>% distinct()
 
-CR_combined <- left_join(CR_names_4, icu_mv, by = "recordid") %>% distinct() %>%
+CR_combined <- CR_combined %>%
   mutate(
     # ICU status at onset4
     icu_at_onset4 = case_when(
@@ -343,15 +291,28 @@ CR_combined <- left_join(CR_names_4, icu_mv, by = "recordid") %>% distinct() %>%
 
 
 CR_targeted <- CR_combined %>% 
-  select(recordid, inf_onset, spec_date, onset4, delay, arm, arm2, arm3, number, 
-         anti_onset4, anti_onset4_s, anti_new, anti_start, organism, icu_at_onset4, vent_at_onset4, 
-         los_onset4, iculos_onset4, mvdur_onset4, susceptibility, organism) %>%
+  select(recordid, inf_onset, onset4, delay, arm, arm2, 
+         number, anti_onset4, anti_onset4_s, anti_new, anti_start, organism, icu_at_onset4, vent_at_onset4, los_onset4, iculos_onset4, mvdur_onset4, susceptibility, organism) %>%
   filter(anti_new != "Carbapenem") %>%  
   group_by(recordid) %>%
   filter(delay == min(delay)) %>%  
   ungroup()%>%
-  select (recordid, inf_onset, onset4, delay, arm,  arm2, arm3,
+  select (recordid, inf_onset, onset4, delay, arm,  arm2, 
           number, anti_onset4, anti_onset4_s, organism,  icu_at_onset4, vent_at_onset4, los_onset4, iculos_onset4, mvdur_onset4) %>%
+  distinct()
+# filter(n() > 1 & n_distinct(anti_start) > 1) 
+# mortality_date_final, infection_types, mono_poly)
+
+CR_icu <- f02 %>% select (recordid, f02_deleted, f02_infected_episode_complete, hai_icu48days, hai_have_med_device___vent)%>%
+  #filter(recordid %in% CR_final$recordid)%>%
+  filter(f02_infected_episode_complete == 2)%>%
+  # filter rows when f02_deleted is not Y
+  select(-f02_infected_episode_complete, -f02_deleted) %>%
+  group_by(recordid) %>%
+  summarise(
+    hai_icu48days = if_else(any(hai_icu48days == "Y"), "Y", "N"),
+    hai_have_med_device___vent = if_else(any(hai_have_med_device___vent == 1), 1L, 0L)
+  )%>%
   distinct()
 
 # join CR_targeted and outcome dataframe, follow CR_targeted recordid
@@ -362,37 +323,44 @@ CR_final <- left_join(CR_targeted, outcome, by = "recordid")%>%
     # 21-day mortality from dayzero
     mortality_date_final = pmin(d28_death_date, mortality_date, na.rm = TRUE),
     mort_21d_onset4 = ifelse(!is.na(mortality_date_final) & (mortality_date_final - onset4) <= 21, 1, 0),
-    mort_14d_onset4 = ifelse(!is.na(mortality_date_final) & (mortality_date_final - onset4) <= 14, 1, 0),
     # Mortality days from dayzero, assign 0 if no mortality
-    mortday_onset4 = ifelse(is.na(mortality_date_final), 0, as.integer(mortality_date_final - onset4))) %>% distinct()
+    mortday_onset4 = ifelse(is.na(mortality_date_final), 0, as.integer(mortality_date_final - onset4)))
 
 CR_mono <- ast_all_index %>% select (recordid, org_combined) %>% filter (recordid %in% CR_final$recordid)%>%
   mutate(mono_poly = ifelse(grepl(",", org_combined), "polymicrobial", "monomicrobial"))%>% distinct()
-
-# 
-# length(unique(CR_final$recordid)) #335  #271
-# length(unique(CR_mono$recordid)) #331
-# # Which recordid is missing in CR_mono
-# CR_final[!CR_final$recordid %in% CR_mono$recordid, "recordid"]
-
 #merge CR_final and CR_mono
 CR_final <- merge(CR_final, CR_mono, by = "recordid", all.x = TRUE) %>% distinct()
-# For recordid CN-001-A0-0032, CN-002-A0-0005, IN-004-A0-0009, assign mono_poly as monomicrobial
+#CR_final[CR_final$recordid %in% c("TH-004-A0-0024"), "mono_poly"] <- "monomicrobial"
+length(unique(CR_final$recordid)) #511
 
-#CR_final[CR_final$recordid %in% c("CN-001-A0-0032", "CN-002-A0-0005","IN-004-A0-0007", "IN-004-A0-0009"), "mono_poly"] <- "monomicrobial"
-#CR_final[CR_final$recordid %in% c("CN-001-A0-0032", "CN-002-A0-0005","IN-004-A0-0007", "IN-004-A0-0009"), "org_combined"] <- "K. pneumoniae"
+#Distribution of study arms
+CR_final%>%
+  count(arm3) %>%
+  arrange(desc(n)) %>%
+  kable(col.names = c("Antibiotic", "Count"), caption = "Distribution of study arms")
+# 
+# CR_final%>%
+#   count(anti_onset4) %>%
+#   arrange(desc(n)) %>%
+#   kable(col.names = c("Antibiotic", "Count"), caption = "Distribution of study arms")
 
-length(unique(CR_final$recordid)) #335  #982  #723
+
+# CR_final%>%
+#   count(arm_group) %>%
+#   arrange(desc(n)) %>%
+#   kable(col.names = c("Antibiotic", "Count"), caption = "Distribution of study arms")
 
 CR_final%>%
   count(arm) %>%
   arrange(desc(n)) %>%
   kable(col.names = c("Antibiotic", "Count"), caption = "Distribution of study arms")
 
+length(unique(CR_final$recordid)) #504
+
 CR_combined_new <- checkast %>%
   left_join(CR_final %>% select(recordid, onset4), by = "recordid")%>%
   filter(spec_date <= onset4) %>%
-  filter(!grepl("Coagulase-negative staphylococci|Chryseobacterium|Corynebacterium|Ochrobactrum|Abiotrophia", org_names_all)) %>%
+  filter(!grepl("Coagulase-negative staphylococci (CoNS)|Chryseobacterium|Corynebacterium|Ochrobactrum|Abiotrophia", org_names_all)) %>%
   filter(!grepl("Coagulase-negative staphylococci (CoNS)", org_names_all, fixed = TRUE))%>%
   distinct()
 
@@ -406,131 +374,15 @@ CR_combined_new <- CR_combined_new %>%
   )%>%
   mutate(monopoly = ifelse(grepl(",", org_combined_new), "polymicrobial", "monomicrobial"))%>% distinct() 
 
-CR_final <- CR_final %>%
-  left_join(CR_combined_new, by= "recordid")%>%
-  mutate(aci = ifelse(grepl("Acinetobacter|acinetobacter baumini", org_combined_new), 1, 0)) %>%
-  mutate(pae= ifelse(grepl("Pseudomonas", org_combined_new), 1, 0)) %>%
-  mutate(ent= ifelse(grepl("Enterobacter|Serratia|K. pneumoniae|Klebsiella|Aeromonas|Enterobacter|E. coli|Proteus|Providencia|Morganella|Proteus|Serratia|Citrobacter|Aeromonas", org_combined_new), 1, 0))%>%
-  group_by(recordid) %>%
-  mutate(
-    cr_aci = ifelse(any(organism == "CRAB", na.rm = TRUE), 1, 0),
-    cr_ent = ifelse(any(organism == "CRE", na.rm = TRUE), 1, 0),
-    cr_pae = ifelse(any(organism == "CRPAE", na.rm = TRUE), 1, 0)
-  ) %>%
-  ungroup()
+unique(CR_combined_new$org_combined_new)
+# List unique anti_onset4 when arm_group ==Other
+# CR_names_4 %>% filter(arm_group == "Other") %>% select(anti_onset4_s) %>% distinct()
 
 CR_complete_outcome <- CR_final %>% filter(!is.na(d28_date) | !is.na(d28_status) | !is.na(d28_death_date) | !is.na(mortality_date))
 CR_incomplete_outcome <- CR_final %>% filter(is.na(d28_date) & is.na(d28_status) & is.na(d28_death_date) & is.na(mortality_date))
 unique(CR_incomplete_outcome$recordid) # "CN-002-A0-0001" "CN-002-A0-0027" "KH-002-A0-0179"
-# "CN-001-A0-0020" "TH-002-A0-0344"
 
-length(unique(CR_final$recordid)) #501  #511 #532  #723
-length(unique(CR_final$recordid)) #668 -> 654 (26 apr)  #723 with tigecycline and fosfomycin
-nrow(CR_final) #779
+length(unique(CR_final$recordid)) #501  #511 #532
 
-CR_final_drop <- CR_final %>% filter(!grepl("Tigecycline|Fosfomycin", anti_onset4))
-length(unique(CR_final_drop$recordid)) #638 wihtout tigecycline and fosfomycin  #638
-CR_final <- CR_final_drop
-
-#######################################################################################################################################
-################# STOP here ####################
-#######################################################################################################################################
-colnames(CR_final)
-
-# CRAB <- CR_final %>% filter(organism == "CRAB")
-# length(unique(CRAB$recordid)) #487  #471
-# nrow(CRAB) #487
-# CRE <- CR_final %>% filter(organism == "CRE")
-# length(unique(CRE$recordid)) #221  #231 
-# nrow(CRE) #221
-# CRPAE <- CR_final %>% filter(organism == "CRPAE")
-# length(unique(CRPAE$recordid)) # 89  #77 
-# nrow(CRPAE) #89
-
-CRAB_drop <- CR_final_drop %>% filter(organism == "CRAB")
-length(unique(CRAB_drop$recordid)) #429  
-nrow(CRAB_drop) 
-CRE_drop <- CR_final_drop %>% filter(organism == "CRE")
-length(unique(CRE_drop$recordid)) #187 
-nrow(CRE_drop) 
-CRPAE_drop <- CR_final_drop %>% filter(organism == "CRPAE")
-length(unique(CRPAE_drop$recordid)) #65
-nrow(CRPAE_drop) 
-
-CRAB <- CR_final %>% filter(cr_aci==1)
-#%>% filter(monopoly == "monomicrobial")
-length(unique(CRAB$recordid)) #487 (370 mono)   #445 (no tige)
-nrow(CRAB) #487   #445
-#429 ITT 425 PP
-#430 5 days
-#466
-
-CRE_CRPAE <- CR_final %>% filter(cr_pae==1 | cr_ent==1)
-# %>% filter(monopoly == "monomicrobial")
-length(unique(CRE_CRPAE$recordid)) #316 (221 mono)  #264 (no tige)
-nrow(CRE_CRPAE) #316
-# 246
-# 274
-
-CR_final_mono <- CR_final %>% filter(monopoly == "monomicrobial") 
-length(unique(CR_final_mono$recordid)) #570
-nrow(CR_final_mono) 
-
-#skim(CRAB)
-#skim(CRE_CRPAE)
-
-###########################################################################################################################################
-check <- CRE_CRPAE %>% select(recordid, onset4, org_combined_new, anti_onset4, arm, arm2, arm3, aci, ent, pae, cr_aci, cr_pae, cr_ent)%>%
-  filter(!is.na(arm3))%>%
-  filter(!grepl("Tigecycline|Fosfomycin", anti_onset4))
-length(unique(check$recordid)) #261 (with tige), #211 (no tige)
-
-crab <- CRAB %>% filter(!is.na(arm2))
-#%>% filter(!grepl("Tigecycline|Fosfomycin", anti_onset4))
-length(unique(crab$recordid)) #443 (no tige)  vs 485 (with tige)
-#427
-#428 day 5
-#462
-
-table(crab$arm, crab$mort_21d_onset4)
-
-crab %>%
-  count(arm) %>%
-  arrange(desc(n)) %>%
-  kable(col.names = c("Antibiotic", "Count"), caption = "Distribution of study arms for CRAB") 
-
-crab_mono <- CRAB %>% filter(!is.na(arm2))%>% filter(monopoly =="monomicrobial")
-length(unique(crab_mono$recordid)) #345 #358
- 
-crab_bsi <-crab %>% filter(infection_types == "BSI")
-length(unique(crab_bsi$recordid)) #144
-crab_vap <- crab %>% filter(infection_types == "VAP")
-length(unique(crab_vap$recordid)) # 318
-
-table(crab_bsi$arm)
-table(crab_vap$arm)
-###====================================#####
-cre_crpae <- CRE_CRPAE %>% filter(!is.na(arm3)) 
-# %>%
-# filter(!grepl("Tigecycline|Fosfomycin", anti_onset4))
-length(unique(cre_crpae$recordid)) #261 (with tige), #211 (no tige)  #246
-# 196
-#216
-
-cre_crpae_mono <- CRE_CRPAE %>% filter(!is.na(arm3))%>% filter(monopoly =="monomicrobial")
-length(unique(cre_crpae_mono$recordid)) #162
-
-cre_crpae %>% count(arm3) %>%
-  arrange(desc(n)) %>%
-  kable(col.names = c("Antibiotic", "Count"), caption = "Distribution of study arms for CRE and CRPAE")
-
-table(cre_crpae$arm3, cre_crpae$mort_21d_onset4)
-
-cre_crpae_bsi <-cre_crpae %>% filter(infection_types == "BSI")
-length(unique(cre_crpae_bsi$recordid))  #127
-cre_crpae_vap <- cre_crpae %>% filter(infection_types == "VAP")
-length(unique(cre_crpae_vap$recordid)) #89
-
-table(cre_crpae_bsi$arm3)
-table(cre_crpae_vap$arm3)
+skim(CR_final)
 

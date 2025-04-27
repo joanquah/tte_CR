@@ -1,14 +1,14 @@
 # Check analysis
 # Plot survival curve
 
-cre_crpae <- cre_crpae %>% select (recordid, arm3,age_new,sex, country_income, country_income2, 
-                                   comorbidities_Chalson, sofa_imp,qsofa,crea_imp,
-                                   malignancy, diabetes, liver, renal, 
-                                   infection_types,
-                                   fup_day_onset4, mort_21d_onset4,  mort_14d_onset4, mortday_onset4,
-                                   monopoly,aci, pae, ent, delay_group, delay,  
-                                   hai_icu48days, hai_have_med_device___vent, icu_at_onset4,vent_at_onset4, los_onset4
-)
+# cre_crpae <- cre_crpae %>% select (recordid, arm3,age_new,sex, country_income, country_income2, 
+#                                    comorbidities_Chalson, sofa_imp,qsofa,crea_imp,
+#                                    malignancy, diabetes, liver, renal, 
+#                                    infection_types,
+#                                    fup_day_onset4, mort_21d_onset4,  mort_14d_onset4, mortday_onset4,
+#                                    monopoly,aci, pae, ent, delay_group, delay,  
+#                                    hai_icu48days, hai_have_med_device___vent, icu_at_onset4,vent_at_onset4, los_onset4
+# )
 
 # Crude analysis
 # Fit logistic model and estimate 21 day mortality risks
@@ -57,6 +57,10 @@ cre_crpae$fup_day_onset4[cre_crpae$recordid == "CN-002-A0-0033"] <- 13
 cre_crpae$mortday_onset4[cre_crpae$recordid == "CN-002-A0-0033"] <- 13
 cre_crpae$d28_death_date[cre_crpae$recordid == "CN-002-A0-0033"] <- as.Date("2024-11-25")
 cre_crpae$fup_day_onset4[cre_crpae$recordid == "TH-005-A0-0123"] <- 8
+cre_crpae$mort_date_final[cre_crpae$recordid == "TH-005-A0-0123"]  <- as.Date("2024-06-23")
+cre_crpae$d28_date[cre_crpae$recordid == "TH-005-A0-0123"]  <- as.Date("2024-06-23")
+cre_crpae$d28_death_date[cre_crpae$recordid == "TH-005-A0-0123"]  <- as.Date("2024-07-09")
+cre_crpae$mortday_onset4[cre_crpae$recordid == "TH-005-A0-0123"] <- 12
 # remove PK-002-A0-0357 from the dataset
 cre_crpae <- cre_crpae[cre_crpae$recordid != "PK-002-A0-0357",]
 
@@ -405,10 +409,9 @@ library(nnet)
 # Fit multinomial logistic regression model
 
 model2 <- multinom (arm3 ~ age_new + sex + country_income2 + comorbidities_Chalson + 
-                      diabetes + malignancy + renal + liver +
                       sofa_imp + infection_types + 
                       los_onset4 + hai_icu48days + hai_have_med_device___vent + monopoly +
-                      delay + ent + pae,
+                      delay + aci,
                     data=cre_crpae)
 summary(model2) 
 
@@ -798,3 +801,5 @@ risk2
 # Risk ratio and risk difference
 risk1 - risk0
 risk1 / risk0
+
+

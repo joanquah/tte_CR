@@ -1,7 +1,6 @@
 ############ Standardized mean difference (CRAB) ###################
 # Generate SMD before weighting
 bal.tab(arm ~ age_new + sex + country_income2 + comorbidities_Chalson + 
-          diabetes + malignancy + renal + liver +
           sofa_imp + infection_types + 
           los_onset4 + hai_icu48days + hai_have_med_device___vent + monopoly +
           delay + ent + pae,
@@ -11,7 +10,6 @@ bal.tab(arm ~ age_new + sex + country_income2 + comorbidities_Chalson +
 
 # Generate SMD after weighting (applying inverse probability weights)
 bal.tab(arm ~ age_new + sex + country_income2 + comorbidities_Chalson + 
-          diabetes + malignancy + renal + liver +
           sofa_imp + infection_types + 
           los_onset4 + hai_icu48days + hai_have_med_device___vent + monopoly +
           delay + ent + pae,
@@ -21,7 +19,6 @@ bal.tab(arm ~ age_new + sex + country_income2 + comorbidities_Chalson +
 
 # Love plot for visualization
 love.plot(bal.tab(arm ~ age_new + sex + country_income2 + comorbidities_Chalson + 
-                    diabetes + malignancy + renal + liver +
                     sofa_imp + infection_types + 
                     los_onset4 + hai_icu48days + hai_have_med_device___vent + monopoly +
                     delay + ent + pae,
@@ -30,14 +27,13 @@ love.plot(bal.tab(arm ~ age_new + sex + country_income2 + comorbidities_Chalson 
                   weights = crab$w2),
           abs = TRUE, 
           threshold = 0.1, 
-          title = "Standardized Mean Differences Before and After Weighting")
+          title = "SMD Before and After Weighting (Carbapenem Resistant Acinetobacter spp)")
 
 
 ####################################################################################################
 ############ Standardized mean difference (CRE_CRPAE) ###################
 # Generate SMD before weighting
 bal.tab(arm3 ~ age_new + sex + country_income2 + comorbidities_Chalson + 
-          diabetes + malignancy + renal + liver +
           sofa_imp + infection_types + 
           los_onset4 + hai_icu48days + hai_have_med_device___vent + monopoly +
           delay + aci,
@@ -47,7 +43,6 @@ bal.tab(arm3 ~ age_new + sex + country_income2 + comorbidities_Chalson +
 
 # Generate SMD after weighting (applying inverse probability weights)
 bal.tab(arm3 ~ age_new + sex + country_income2 + comorbidities_Chalson + 
-          diabetes + malignancy + renal + liver +
           sofa_imp + infection_types + 
           los_onset4 + hai_icu48days + hai_have_med_device___vent + monopoly +
           delay + aci,
@@ -57,7 +52,6 @@ bal.tab(arm3 ~ age_new + sex + country_income2 + comorbidities_Chalson +
 
 # Love plot for visualization
 love.plot(bal.tab(arm3 ~ age_new + sex + country_income2 + comorbidities_Chalson + 
-                    diabetes + malignancy + renal + liver +
                     sofa_imp + infection_types + 
                     los_onset4 + hai_icu48days + hai_have_med_device___vent + monopoly +
                     delay + aci,
@@ -66,5 +60,5 @@ love.plot(bal.tab(arm3 ~ age_new + sex + country_income2 + comorbidities_Chalson
                   weights = cre_crpae$w2),
           abs = TRUE, 
           threshold = 0.1, 
-          title = "Standardized Mean Differences Before and After Weighting")
+          title = "SMD Before and After Weighting (Carbapenem Resistant Enterobacterales and Pseudomonas spp)")
 
